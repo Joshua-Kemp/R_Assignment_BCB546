@@ -116,9 +116,10 @@ ggplot(data = reformatted_one_genotypecall_per_row.df) +
 
 
 ## this ends up being more than can easily plotted and may crash the computer.  That said, there are a number of lines that were very far from inbred, and may not have correct phenotype to genotype matching. Overall, lines are less inbred than you would expect for this kind of study.
-contaminated_lines <- summarise(reformatted_one_genotypecall_per_row.df, Mean_Homozygosity = mean(Homozygous), Species = mode(Species), .by = Sample_ID)
+contaminated_lines <- summarise(reformatted_one_genotypecall_per_row.df, Mean_Homozygosity = mean(Homozygous), .by = c(Sample_ID, Species))
 contaminated_lines <- arrange(contaiminated_lines, Mean_Homozygosity)
 head(contaminated_lines, n = 20)
-ggplot(data = contaiminated_lines) + geom_point(mapping = aes(x= Sample_ID, y= Mean_Homozygosity, color = Species))
+ggplot(data = contaminated_lines) + geom_point(mapping = aes(x= Species, y= Mean_Homozygosity, color = Species))
+ggplot(data = contaminated_lines) + geom_point(mapping = aes(x= Sample_ID, y= Mean_Homozygosity, color = Species))
 
 
