@@ -93,7 +93,7 @@ reformatted_one_genotypecall_per_row.df <- filter(transposed_full.dataframe, !(S
   relocate(c(Chromosome, Position, Species, Group), .before = name) %>% 
   mutate(Allele1 = substr(value, 1, 1), .before = value) %>% 
   mutate(Allele2 = substr(value, 3, 3), .before = value) %>% 
-  mutate(Homozygous = Allele1 == Allele2 & Allele1 != "?", .before = Allele1) %>% 
+  mutate(Homozygous = ifelse(Allele1 == "?" | Allele2 == "?", NA, eval(Allele1 == Allele2)), .before = Allele1) %>% 
   mutate(Missing_call = Allele1 == "?" | Allele2 == "?", .before = Allele1) %>% 
   filter(!(Position %in% problem.locations)) %>% 
   mutate(bin_position = cut(as.integer(Position), 20, labels = FALSE), .after = Position)
@@ -115,11 +115,12 @@ ggplot(data = reformatted_one_genotypecall_per_row.df) +
   ylab('SNP density')
 
 
-## this ends up being more than can easily plotted and may crash the computer.  That said, there are a number of lines that were very far from inbred, and may not have correct phenotype to genotype matching. Overall, lines are less inbred than you would expect for this kind of study.
-contaminated_lines <- summarise(reformatted_one_genotypecall_per_row.df, Mean_Homozygosity = mean(Homozygous), .by = c(Sample_ID, Species))
-contaminated_lines <- arrange(contaiminated_lines, Mean_Homozygosity)
+## this ends up being more than can easily plotted and may crash the computer.  That said, there are a number of lines that were very far from inbred, and may not have correct phenotype to genotype matching from pollen contamination. Overall, lines are less inbred than you would expect for this kind of study.
+contaminated_lines <- summarise(reformatted_one_genotypecall_per_row.df, Mean_Homozygosity = mean(Homozygous, na.rm = TRUE), .by = c(Sample_ID, Species))
+contaminated_lines <- arrange(contaminated_lines, Mean_Homozygosity)
 head(contaminated_lines, n = 20)
-ggplot(data = contaminated_lines) + geom_point(mapping = aes(x= Species, y= Mean_Homozygosity, color = Species))
+ggplot(data = contaminated_lines) + geom_point(mapping = aes(x= Species, y= Mean_Homozygosity, color = Species, alpha=0.05)) + ggtitle("Sample Homozygosity by Species")
+
 ggplot(data = contaminated_lines) + geom_point(mapping = aes(x= Sample_ID, y= Mean_Homozygosity, color = Species))
 
 
