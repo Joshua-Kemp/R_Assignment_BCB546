@@ -13,8 +13,8 @@ snppositions <- read_tsv("https://github.com/EEOB-BioData/BCB546_Spring2023/raw/
 fang.original<- read_tsv("https://github.com/EEOB-BioData/BCB546_Spring2023/blob/main/assignments/UNIX_Assignment/fang_et_al_genotypes.txt?raw=true", col_names=FALSE, show_col_types = FALSE) 
 #Col.names = FALSE makes sure that the header will be a row so that we have the SNP column when we transpose.  I had added the column using mutate, but this is cleaner.
 
-
-### There are genotypes in the fang file that do not belong to teosinte or maize groups we filter for
+## Data Inspection
+### There are genotypes in the fang file that do not belong to teosinte or maize groups we filter for looks like they come from the related group
 976 + 1574
 unique(duplicated(fang.original$X1))
 unique(fang.original$X3)
@@ -22,20 +22,18 @@ unique(duplicated(snppositions$SNP_ID))
 unique(snppositions$Chromosome)
 
 
-#seperate by species and traspose
+### Seperate by species and traspose
 maize.fang <- filter(fang.original, X3 == "ZMMIL" | X3 == "ZMMLR" | X3 =="ZMMMR" | X1 == "Sample_ID") %>% rotate_df() 
 teosinte.fang <- filter(fang.original, X3 == "ZMPBA" | X3 == "ZMPIL" | X3 =="ZMPJA" | X1 == "Sample_ID") %>% rotate_df() 
-#filter(teosinte.fang, V1 == "Sample_ID") -> colnames(teosinte.fang)
-#filter(maize.fang, V1 == "Sample_ID") -> colnames(maize.fang)
 
-##workflow 1. add sample names to col names because it is nice 2. merge genofiles with snpostions 3. remove unknown missing multiple and "" positions and write to files 4. loop or lapply through chr #s filtering and sorting
-#create functions and lists
-#lists
+
+## Functions and Lists
+#### Lists
 species.files.names <- c("maize.fang", "teosinte.fang")
 chromosomes <- c(1:10)
 problem.locations <- c("unknown", "multiple", NA, "missing")
 
-## functions
+#### Functions
 Firstrow.to.colnames <- function(dfx) {
   newcolnames <- filter(dfx, V1 == "Sample_ID")
   colnames(dfx) <- c(newcolnames)
@@ -59,11 +57,12 @@ Create.Split.Filenames <- {
 Write_csv <- function(df) walk2(df, paste0(names(df), ".csv"), write_csv)
 
 ## Workflow
-#### Add Marker locations (Chromosome and Postion) to our genotype files then name them
+#### Add Names and Marker locations (Chromosome and Postion) to our genotype files then name them
 genotypes.by.species <- list(maize.fang, teosinte.fang)
 genotypes.by.species <- lapply(genotypes.by.species, Firstrow.to.colnames)
 merged.genotypes.by.species <-lapply(genotypes.by.species, Merge.with.snppositions)
 names(merged.genotypes.by.species) <- c(paste("merged_", species.files.names, sep = ""))
+#### Remove problematic marker positions
 problem.positions <- lapply(merged.genotypes.by.species, Remove.problem.postions)
 names(problem.positions) <- paste0(species.files.names, "_miss_unk_mult", sep = "")
 problem.positions_hyphen <- (lapply(problem.positions, function(l) Replace_quest_with_hyphen(l)))
@@ -112,7 +111,7 @@ ggplot(data = reformatted_one_genotypecall_per_row.df) +
   geom_density(aes(as.numeric(Position)/98507715),) + 
   facet_wrap(~ as.double(Chromosome)) +
   ggtitle("SNPs accross Chromosomes") +
-  xlab('Genome position (Mb)') +
+  xlab("Genome Position") +
   ylab('SNP density')
 
 
