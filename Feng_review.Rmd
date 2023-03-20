@@ -1,0 +1,241 @@
+---
+title: "Josh_Kemp_BCB_546_R_assignment.md"
+author: "Joshua Kemp"
+date: "2023-03-10"
+output: html_document
+---
+
+```{r setup, include=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Joshua Kemp R Assignment
+
+### Prepare Environment
+
+#install.packages("tidyverse", "dplyr", "sjmisc") \# remove \# if any are needed #install.packages("sjmisc")
+
+```{r libraries, include=FALSE}
+install.packages("sjmisc")
+
+    library(tidyverse)
+    library(dplyr)
+    library(rmarkdown)
+    library(sjmisc)
+    library(stats)
+```
+
+## Download files and transpose fang
+
+```{r download and transpose, include=FALSE}
+    snppositions <- read_tsv("https://github.com/EEOB-BioData/BCB546_Spring2023/raw/main/assignments/UNIX_Assignment/snp_position.txt", col_names=TRUE, show_col_types = FALSE) %>% select(SNP_ID, Chromosome, Position)
+    fang.original<- read_tsv("https://github.com/EEOB-BioData/BCB546_Spring2023/blob/main/assignments/UNIX_Assignment/fang_et_al_genotypes.txt?raw=true", col_names=FALSE, show_col_types = FALSE)
+```
+
+#Col.names = FALSE makes sure that the header will be a row so that we have the SNP column when we transpose. I had added the column using mutate, but this is cleaner.
+
+### Data Inspection
+
+There are genotypes in the fang file that do not belong to teosinte or maize groups we filter for looks like they come from the related group
+
+#R studio is nice, because it is easy to open a file or element and take a look.
+
+
+```{r File Inspection, include=TRUE}
+    unique(duplicated(fang.original$X1)) #make sure these are non-duplicated
+    unique(fang.original$X3) # see what is here, shows that we are leaving out some of the groups present.  I assume they belong to trypsicum
+    unique(duplicated(snppositions$SNP_ID)) # just making sure that these are unique, but since the unix project had no problems, they should be
+    str_which(unique(snppositions$Position), "\\D")  #  Check for non-digit values in position. This block looks for values in postion that could be problems.  Found multiple, unknown, and NA
+      str_which(unique(snppositions$Position), "\\s") # check for whitespace
+      Filter(is.null,unique(snppositions$Position)) # look for nulls
+      Filter(is.na,unique(snppositions$Position)) # look for NAs
+      unique(snppositions$Position)[55] #what non-digit thing is element 55 and 89
+      unique(snppositions$Position)[189]
+```
+
+### Separate by species and transpose
+
+```{r Seperate Fang Genotypes by Species, include=FALSE}
+    maize.fang <- filter(fang.original, X3 == "ZMMIL" | X3 == "ZMMLR" | X3 =="ZMMMR" | X1 == "Sample_ID") %>% rotate_df()  #pull out Maize groups, write to a file, and transpose
+    teosinte.fang <- filter(fang.original, X3 == "ZMPBA" | X3 == "ZMPIL" | X3 =="ZMPJA" | X1 == "Sample_ID") %>% rotate_df()  #pull out teosinte groups, write to a file, and transpose
+```
+
+
+## Functions and Lists
+
+#### Lists
+
+```{r create lists, include=FALSE}
+    species.files.names <- c("maize.fang", "teosinte.fang")  # list of starting files
+    chromosomes <- c(1:10)   # list of Chromosome values
+    problem.locations <- c("unknown", "multiple", NA, "missing")  # None numeric values present in the position column
+```
+
+#### Functions
+
+```{r create functions, include=FALSE}
+    Firstrow.to.colnames <- function(dfx) {
+      newcolnames <- filter(dfx, V1 == "Sample_ID")
+      colnames(dfx) <- c(newcolnames)
+      dfx }  ## filter the row containing header information and assign column names based on that vector
+    Merge.with.snppositions <- function(f) merge.data.frame(snppositions, f, by.x = "SNP_ID", by.y = "Sample_ID", all.y = TRUE, sort = FALSE) # Join a data frame with the snppositions file, keeping the extra rows (which contain some useful information)
+    Remove.problem.postions <- function(dfx) postions.problems <- filter(dfx, Position %in% problem.locations)  #find and filter all rows from a dataframe contatining positions the non numeric positions in our list and write them to a new seperate dataframe called problem positions.
+    Replace_quest_with_hyphen <- function(dfx) as.data.frame(lapply(dfx, function(x) (gsub(pattern="?", replacement="-", x, fixed = TRUE))) -> dfx) # Replace all questionmarks with hyphens within a dataframe
+    Filter.by.chromosome <- function(dfx) {
+      append(
+      lapply(chromosomes, function(y) filter(dfx, Chromosome == y )) %>% lapply(function(x) filter(x, !(Position %in% problem.locations)) %>% arrange(as.numeric(Position))),
+      lapply(chromosomes, function(y) filter(Replace_quest_with_hyphen(dfx), Chromosome == y )) %>% lapply(function(x) filter(x, !(Position %in% problem.locations)) %>% arrange(desc(as.numeric(Position))))
+      )
+      } # This is complicated, but it the lapply version of a nested loop.  It takes a given data frame, and for each chromosome within our chromsosme list, it will filter by chromosome, remove problem locations and then sort. I does this twice once ascending, and onnce decending on a version of the dataframe with the questionmarks replaced.
+    Create.Split.Filenames <- {
+      sapply(1: length(species.files.names), function(x) {
+      c(
+        sapply(chromosomes, function(y) c(paste0(species.files.names[x], "_chr-", y, "_ascending"))),
+        sapply(chromosomes, function(y) c(paste0(species.files.names[x], "_chr-", y, "_descending"))))
+      })
+      } # Does the samething basically, but just modifying the file names so we can assign them later
+    Write_csv <- function(df) walk2(df, paste0(names(df), ".csv"), write_csv) # writes a dataframe to file in the current working directory
+```
+
+## Workflow
+
+#### Add Names and Marker locations (Chromosome and Postion) to our genotype files then name them
+
+```{r Run Data processing, include=FALSE}
+    genotypes.by.species <- list(maize.fang, teosinte.fang)
+    genotypes.by.species <- lapply(genotypes.by.species, Firstrow.to.colnames)
+    merged.genotypes.by.species <-lapply(genotypes.by.species, Merge.with.snppositions)
+    names(merged.genotypes.by.species) <- c(paste("merged_", species.files.names, sep = ""))
+    #### Remove problematic marker positions
+    problem.positions <- lapply(merged.genotypes.by.species, Remove.problem.postions)
+    names(problem.positions) <- paste0(species.files.names, "_miss_unk_mult", sep = "")
+    problem.positions_hyphen <- (lapply(problem.positions, function(l) Replace_quest_with_hyphen(l)))
+    names(problem.positions_hyphen) <- paste0(species.files.names, "_hypen_miss_unk_mult", sep = "")
+    #### Split dataframes by Chromosome
+    split.genotype.files <- lapply(merged.genotypes.by.species, Filter.by.chromosome) #(Review: program stops here.)
+    Create.Split.Filenames -> newsplitnames
+    #### Flatten List Structure (remove nesting) and Name the split files
+    flat.split.genos <- list_flatten(split.genotype.files)
+    names(flat.split.genos) <- newsplitnames
+    #### write lists to csv files
+    Write_csv(flat.split.genos)
+    Write_csv(problem.positions)
+    Write_csv(problem.positions_hyphen)
+```
+
+## Visualization
+
+### Reformatting
+
+```{r Reformat, include=FALSE}
+    both_species.dataframe <- full_join(merged.genotypes.by.species[[1]], merged.genotypes.by.species[[2]], by = join_by("SNP_ID" == "SNP_ID", "Chromosome" == "Chromosome", "Position" == "Position"), suffix = c("", ""))
+    transposed_full.dataframe <- rotate_df(both_species.dataframe)
+    transposed_full.dataframe <- rotate_df(both_species.dataframe) %>% mutate(Species = ifelse(V986 == "ZMMIL" | V986 == "ZMMLR" | V986 =="ZMMMR", "Maize", ifelse(V986 == "ZMPBA" | V986 == "ZMPIL" | V986 =="ZMPJA", "Teosinte", NA)), .before = V1)
+    transposed_full.dataframe[1,1] <- "Species"
+    colnames(transposed_full.dataframe) <- filter(transposed_full.dataframe, Species == "Species")
+    reformatted_one_genotypecall_per_row.df <- filter(transposed_full.dataframe, !(Sample_ID == "NA" | Sample_ID == "Sample_ID")) %>% pivot_longer(cols = -c("Species", "Group", "JG_OTU", "Sample_ID")) %>% 
+      merge.data.frame(snppositions, by.x = "name", by.y = "SNP_ID", all.x = TRUE, sort = FALSE) %>%    # quick way to add snp locations
+      relocate(c(Chromosome, Position, Species, Group), .before = name) %>%   #move these columns to the front of the df
+      mutate(Allele1 = substr(value, 1, 1), .before = value) %>%    #take first allele call, difit 1, and create a column
+      mutate(Allele2 = substr(value, 3, 3), .before = value) %>%    #take 3rd digit which is the second allele call
+      mutate(Homozygous = ifelse(Allele1 == "?" | Allele2 == "?", NA, eval(Allele1 == Allele2)), .before = Allele1) %>%  #if there is no call "?", return NA otherwise, check if allele 1 equals allele 2 and return true or false
+      mutate(Missing_call = Allele1 == "?" | Allele2 == "?", .before = Allele1) %>% # if allele one or two is a missing call write True, otherwise false and write to new column called Missing_call
+      filter(!(Position %in% problem.locations)) %>% 
+      mutate(bin_position = cut(as.integer(Position), 20, labels = FALSE), .after = Position)
+```
+
+## Plotting
+
+#### SNPs per Chromosome
+
+```{r plot SNPs Per Chromosome, include=TRUE}
+
+    ggplot(data = reformatted_one_genotypecall_per_row.df ) + geom_bar(mapping = aes(x= as.factor(as.integer(Chromosome)), color = Species )) +
+      ylab('Number of tested SNPs') +
+      xlab('Chromosome') 
+      
+```
+
+#### Distribution across Chromosomes
+
+```{r plot snp density fuction by position, include=TRUE}
+    ggplot(data = reformatted_one_genotypecall_per_row.df, aes(as.double(Position))) +
+      geom_density() +
+      scale_color_viridis_d() +
+      facet_wrap(~ as.double(Chromosome))
+```
+
+#### Homozygous calls across Chromosome Positions
+
+```{r setup, include=TRUE}
+    ggplot(data = reformatted_one_genotypecall_per_row.df, aes(x = as.double(Position), fill = (Homozygous), position = "fill", color = Species)) +
+      geom_density(alpha = .2) +
+      facet_wrap(~ as.double(Chromosome))
+```
+
+
+#### Missing_call by Position
+
+
+```{r summarise missing, include=FALSE}
+    contaminated_lines <- summarise(reformatted_one_genotypecall_per_row.df, Mean_Missing = mean(Homozygous, na.rm = TRUE), .by = c(Sample_ID, Species))
+
+```
+
+```{r plot missing by position, include=TRUE}
+    ggplot(data = reformatted_one_genotypecall_per_row.df, aes(x = as.double(Position), fill = Missing_call, position = "fill", color = Species)) +
+      geom_density(alpha = .2) +
+      scale_color_viridis_d() +
+      facet_wrap(~ as.double(Chromosome))
+```
+
+##### Look at how inbred our lines in our samples are, which could indicate problems and lines that may need to be omitted
+
+```{r plot homozygous by sampleID, include=TRUE}
+    contaminated_lines <- summarise(reformatted_one_genotypecall_per_row.df, Mean_Homozygosity = mean(Homozygous, na.rm = TRUE), .by = c(Sample_ID, Species))
+    contaminated_lines <- arrange(contaminated_lines, Mean_Homozygosity)
+    head(contaminated_lines, n = 20)
+```
+
+```{r plot homozygousity by species, include=TRUE}
+    ggplot(data = contaminated_lines) +
+      geom_point(mapping = aes(x= Species, y= Mean_Homozygosity, color = Species, alpha=0.05)) +
+      ggtitle("Sample Homozygosity by Species")
+```
+
+
+My machine runs out of memory running this 
+
+```{r sample homozygousity may crash computer, include=TRUE}
+    ggplot(data = contaminated_lines) + geom_point(mapping = aes(x= Species, y= Mean_Homozygosity, color = Species, alpha=0.05)) + ggtitle("Sample Homozygosity by Species")
+```
+
+Many of these lines are less inbred than I would expect, not sure if hybrids or complex lines were included on purpose. Depends on the type of study this was for.
+
+
+#### Regions with higher or lower homozygosity
+```{r summarise homozygousity by position, include=FALSE}
+    Homozygosity <- summarise(reformatted_one_genotypecall_per_row.df, Mean_Homozygosity = mean(Homozygous, na.rm = TRUE), .by = c(Chromosome, Position, Species))
+```
+
+```{r plot homozygousity by position, include=TRUE}
+    ggplot(data = Homozygosity, aes(x = as.double(Position), y = (Mean_Homozygosity), color = Species)) +
+      geom_point(alpha = .6) +
+      facet_wrap(~ as.double(Chromosome))
+```
+
+#### Samples with Missing data
+
+```{r summarise missing, include=TRUE}
+    Missing <- summarise(reformatted_one_genotypecall_per_row.df, Mean_Missing = mean(Missing_call, na.rm = TRUE), .by = c(Sample_ID, Species))
+    Missing <- arrange(Missing, desc(Mean_Missing))
+    head(Missing, n = 20)
+```
+###(Review: x-axis could be the position. Thus, the figure will be clearer.)
+```{r plot missing, include=TRUE}
+    ggplot(data = Missing, aes(x = Sample_ID, y = Mean_Missing, color = Species)) +
+      geom_point(alpha = .6)
+````
+
+
+
