@@ -16,6 +16,8 @@ knitr::opts_chunk$set(echo = TRUE)
 #install.packages("tidyverse", "dplyr", "sjmisc") \# remove \# if any are needed #install.packages("sjmisc")
 
 ```{r libraries, include=FALSE}
+install.packages("sjmisc")
+
     library(tidyverse)
     library(dplyr)
     library(rmarkdown)
@@ -77,14 +79,14 @@ There are genotypes in the fang file that do not belong to teosinte or maize gro
       colnames(dfx) <- c(newcolnames)
       dfx }  ## filter the row containing header information and assign column names based on that vector
     Merge.with.snppositions <- function(f) merge.data.frame(snppositions, f, by.x = "SNP_ID", by.y = "Sample_ID", all.y = TRUE, sort = FALSE) # Join a data frame with the snppositions file, keeping the extra rows (which contain some useful information)
-    Remove.problem.postions <- function(dfx) postions.problems <- filter(dfx, Position %in% problem.locations)  #find and filter all rows from a data frame containing the non numeric positions in our list and write them to a new separate dataframe called problem positions.
+    Remove.problem.postions <- function(dfx) postions.problems <- filter(dfx, Position %in% problem.locations)  #find and filter all rows from a dataframe contatining positions the non numeric positions in our list and write them to a new seperate dataframe called problem positions.
     Replace_quest_with_hyphen <- function(dfx) as.data.frame(lapply(dfx, function(x) (gsub(pattern="?", replacement="-", x, fixed = TRUE))) -> dfx) # Replace all questionmarks with hyphens within a dataframe
     Filter.by.chromosome <- function(dfx) {
       append(
       lapply(chromosomes, function(y) filter(dfx, Chromosome == y )) %>% lapply(function(x) filter(x, !(Position %in% problem.locations)) %>% arrange(as.numeric(Position))),
       lapply(chromosomes, function(y) filter(Replace_quest_with_hyphen(dfx), Chromosome == y )) %>% lapply(function(x) filter(x, !(Position %in% problem.locations)) %>% arrange(desc(as.numeric(Position))))
       )
-      } # This is complicated, but it the lapply version of a nested loop.  It takes a given data frame, and for each chromosome within our chromosome list, it will filter by chromosome, remove problem locations and then sort. I does this twice once ascending, and once descending on a version of the data frame with the questionmarks replaced.
+      } # This is complicated, but it the lapply version of a nested loop.  It takes a given data frame, and for each chromosome within our chromsosme list, it will filter by chromosome, remove problem locations and then sort. I does this twice once ascending, and onnce decending on a version of the dataframe with the questionmarks replaced.
     Create.Split.Filenames <- {
       sapply(1: length(species.files.names), function(x) {
       c(
@@ -110,7 +112,7 @@ There are genotypes in the fang file that do not belong to teosinte or maize gro
     problem.positions_hyphen <- (lapply(problem.positions, function(l) Replace_quest_with_hyphen(l)))
     names(problem.positions_hyphen) <- paste0(species.files.names, "_hypen_miss_unk_mult", sep = "")
     #### Split dataframes by Chromosome
-    split.genotype.files <- lapply(merged.genotypes.by.species, Filter.by.chromosome)
+    split.genotype.files <- lapply(merged.genotypes.by.species, Filter.by.chromosome) #(Review: program stops here.)
     Create.Split.Filenames -> newsplitnames
     #### Flatten List Structure (remove nesting) and Name the split files
     flat.split.genos <- list_flatten(split.genotype.files)
@@ -229,7 +231,7 @@ Many of these lines are less inbred than I would expect, not sure if hybrids or 
     Missing <- arrange(Missing, desc(Mean_Missing))
     head(Missing, n = 20)
 ```
-
+###(Review: x-axis could be the position. Thus, the figure will be clearer.)
 ```{r plot missing, include=TRUE}
     ggplot(data = Missing, aes(x = Sample_ID, y = Mean_Missing, color = Species)) +
       geom_point(alpha = .6)
