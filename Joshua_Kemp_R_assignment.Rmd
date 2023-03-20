@@ -231,7 +231,7 @@ Many of these lines are less inbred than I would expect, not sure if hybrids or 
     Missing <- arrange(Missing, desc(Mean_Missing))
     head(Missing, n = 20)
 ```
-
+###(Review: x-axis could be the position. Thus, the figure will be clearer.)
 ```{r plot missing, include=TRUE}
     ggplot(data = Missing, aes(x = Sample_ID, y = Mean_Missing, color = Species)) +
       geom_point(alpha = .6)
