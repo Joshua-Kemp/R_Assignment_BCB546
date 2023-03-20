@@ -16,6 +16,8 @@ knitr::opts_chunk$set(echo = TRUE)
 #install.packages("tidyverse", "dplyr", "sjmisc") \# remove \# if any are needed #install.packages("sjmisc")
 
 ```{r libraries, include=FALSE}
+install.packages("sjmisc")
+
     library(tidyverse)
     library(dplyr)
     library(rmarkdown)
@@ -110,7 +112,7 @@ There are genotypes in the fang file that do not belong to teosinte or maize gro
     problem.positions_hyphen <- (lapply(problem.positions, function(l) Replace_quest_with_hyphen(l)))
     names(problem.positions_hyphen) <- paste0(species.files.names, "_hypen_miss_unk_mult", sep = "")
     #### Split dataframes by Chromosome
-    split.genotype.files <- lapply(merged.genotypes.by.species, Filter.by.chromosome)
+    split.genotype.files <- lapply(merged.genotypes.by.species, Filter.by.chromosome) #(Review: program stops here.)
     Create.Split.Filenames -> newsplitnames
     #### Flatten List Structure (remove nesting) and Name the split files
     flat.split.genos <- list_flatten(split.genotype.files)
@@ -229,7 +231,7 @@ Many of these lines are less inbred than I would expect, not sure if hybrids or 
     Missing <- arrange(Missing, desc(Mean_Missing))
     head(Missing, n = 20)
 ```
-
+###(Review: x-axis could be the position. Thus, the figure will be clearer.)
 ```{r plot missing, include=TRUE}
     ggplot(data = Missing, aes(x = Sample_ID, y = Mean_Missing, color = Species)) +
       geom_point(alpha = .6)
