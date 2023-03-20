@@ -6,7 +6,7 @@ library(dplyr)
 library(rmarkdown)
 library(sjmisc)
 library(stats)
-
+library(knitr)
 
 ## Download files and transpose fang
 snppositions <- read_tsv("https://github.com/EEOB-BioData/BCB546_Spring2023/raw/main/assignments/UNIX_Assignment/snp_position.txt", col_names=TRUE, show_col_types = FALSE) %>% select(SNP_ID, Chromosome, Position)
@@ -49,8 +49,8 @@ Remove.problem.postions <- function(dfx) postions.problems <- filter(dfx, Positi
 Replace_quest_with_hyphen <- function(dfx) as.data.frame(lapply(dfx, function(x) (gsub(pattern="?", replacement="-", x, fixed = TRUE))) -> dfx) # Replace all questionmarks with hyphens within a dataframe
 Filter.by.chromosome <- function(dfx) {
   append(
-  lapply(chromosomes, function(y) filter(dfx, Chromosome == y )) %>% lapply(function(x) filter(x, !(Position %in% problem.locations)) %>% arrange(as.numeric(Position))),
-  lapply(chromosomes, function(y) filter(Replace_quest_with_hyphen(dfx), Chromosome == y )) %>% lapply(function(x) filter(x, !(Position %in% problem.locations)) %>% arrange(desc(as.numeric(Position))))
+  lapply(chromosomes, function(y) filter(dfx, Chromosome == y )) %>% lapply(function(x) filter(x, !(Position %in% problem.locations)) %>% arrange(as.double(Position))),
+  lapply(chromosomes, function(y) filter(Replace_quest_with_hyphen(dfx), Chromosome == y )) %>% lapply(function(x) filter(x, !(Position %in% problem.locations)) %>% arrange(desc(as.double(Position))))
   )
   } # This is complicated, but it the lapply version of a nested loop.  It takes a given data frame, and for each chromosome within our chromsosme list, it will filter by chromosome, remove problem locations and then sort. I does this twice once ascending, and onnce decending on a version of the dataframe with the questionmarks replaced.
 Create.Split.Filenames <- {
